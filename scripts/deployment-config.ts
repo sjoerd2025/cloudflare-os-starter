@@ -21,7 +21,16 @@ export const AI_GATEWAY_PROVIDERS: readonly AiGatewayProvider[] =
   ["anthropic", "openai", "google", "cloudflare"];
 
 /**
- * The public address of the router Worker. Exactly one field is set; `validateConfig` enforces
+ * Every gatekeeper package the submodule ships, keyed by the vendor id that derives from its
+ * `GATEKEEPER_<NAME>` service binding (the suffix lowercased, hyphens kept). The three always-installed
+ * gatekeepers (context, scheduler, custom) are configured separately and are excluded from this list.
+ */
+export const OPTIONAL_GATEKEEPERS: readonly string[] = [
+  "cloudflare", "confluence", "email", "github", "google", "homeassistant",
+  "linear", "mcp", "mcp-portal", "notion", "slack", "spotify", "supabase", "zoominfo",
+];
+
+/** The public address of the router Worker. Exactly one field is set; `validateConfig` enforces
  * that, since wrangler would otherwise happily deploy both a custom domain and a workers.dev route.
  */
 export interface RouterRoute {
@@ -114,6 +123,11 @@ export interface DeploymentConfig {
     customGatekeeper: { name: string };
     /** Only required when `errorReporting.enabled`. */
     errorReporter?: { name: string };
+    /**
+     * Optional gatekeeper workers to install. Each entry names one of the OPTIONAL_GATEKEEPERS
+     * packages; the worker name defaults to `agentup-os-gatekeeper-<id>` when omitted.
+     */
+    gatekeepers?: Record<string, { name?: string }>;
   };
   access: AccessConfig;
   aiGateway: AiGatewayConfigInput;
@@ -184,6 +198,10 @@ export interface GeneratedConfigs {
   customGatekeeper: ProdWranglerConfig;
   /** Absent when `errorReporting.enabled` is false. */
   errorReporter?: ProdWranglerConfig;
+  /** One entry per installed optional gatekeeper, keyed by the vendor id. */
+  gatekeepers?: Record<string, ProdWranglerConfig>;
+  /** Secrets each installed gatekeeper requires, keyed by vendor id (from deploy-inputs.json). */
+  gatekeeperSecrets?: Record<string, string[]>;
 }
 
 /** The upstream base configs the generated ones are derived from. */
@@ -194,6 +212,8 @@ export interface BaseConfigs {
   scheduler: ProdWranglerConfig;
   customGatekeeper: ProdWranglerConfig;
   errorReporter: ProdWranglerConfig;
+  /** One entry per installed optional gatekeeper, keyed by the vendor id. */
+  gatekeepers?: Record<string, ProdWranglerConfig>;
 }
 
 /** One build step `deploy.ts` runs before deploying. See `buildCommands`. */

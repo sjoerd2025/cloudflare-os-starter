@@ -1,0 +1,75 @@
+name: 'Jules Git Dispatch Action'
+description: 'Dispatches an autonomous Jules coding session targeting the repository and returns the created pull request'
+author: 'Google'
+
+inputs:
+  prompt:
+    description: 'The prompt or task instructions for the Jules agent'
+    required: true
+  base_branch:
+    description: 'Base branch for the session'
+    required: false
+    default: 'main'
+  auto_pr:
+    description: 'Whether Jules should automatically open a Pull Request'
+    required: false
+    default: 'true'
+
+outputs:
+  session-id:
+    description: 'The created Jules session ID'
+    value: ${{ steps.dispatch.outputs.session-id }}
+  pr-url:
+    description: 'The URL of the created Pull Request, if any'
+    value: ${{ steps.dispatch.outputs.pr-url }}
+  state:
+    description: 'Final status of the session'
+    value: ${{ steps.dispatch.outputs.state }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Run Git Dispatch
+      id: dispatch
+      shell: bash
+      env:
+        JULES_API_KEY: ${{ env.JULES_API_KEY }}
+        INPUT_PROMPT: ${{ inputs.prompt }}
+        INPUT_BASE_BRANCH: ${{ inputs.base_branch }}
+        INPUT_AUTO_PR: ${{ inputs.auto_pr }}
+        GITHUB_REPOSITORY: ${{ github.repository }}
+      run: |
+        node ${{ github.action_path }}/dist/index.mjs || npx -y --package=@google/jules-sdk node -e '
+        import { jules } from "@google/jules-sdk";
+        const prompt = process.env.INPUT_PROMPT;
+        const repo = process.env.GITHUB_REPOSITORY;
+        const branch = process.env.INPUT_BASE_BRANCH || "main";
+        console.log(`Dispatching Jules session for ${repo} on branch ${branch}...`);
+        const session = await jules.session({
+          prompt,
+          source: { github: repo, baseBranch: branch },
+          autoPr: process.env.INPUT_AUTO_PR === "true",
+          requireApproval: false,
+        });
+        console.log(`Session created: ${session.id}`);
+        if (process.env.GITHUB_OUTPUT) {
+          const fs = await import("fs");
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `session-id=${session.id}\n`);
+        }
+        for await (const activity of session.stream()) {
+          if (activity.type === "agentMessaged") {
+            console.log(`[Agent] ${activity.message.slice(0, 120)}`);
+          } else if (activity.type === "progressUpdated") {
+            console.log(`[Progress] ${activity.title}`);
+          }
+        }
+        const outcome = await session.result();
+        console.log(`Outcome state: ${outcome.state}`);
+        if (process.env.GITHUB_OUTPUT) {
+          const fs = await import("fs");
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `state=${outcome.state}\n`);
+          if (outcome.pullRequest) {
+            fs.appendFileSync(process.env.GITHUB_OUTPUT, `pr-url=${outcome.pullRequest.url}\n`);
+          }
+        }
+        '

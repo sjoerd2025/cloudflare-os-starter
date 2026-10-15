@@ -1,0 +1,34 @@
+header:
+  schema-version: "1.0.0"
+  last-updated: "2026-10-14"
+  last-reviewed: "2026-10-14"
+  expiration-date: "2027-10-14T00:00:00.000Z"
+
+project:
+  name: cloudflare-os-starter
+  description: Deploy a pinned Cloudflare OS release with customized branding, sign-in, integrations, and routes.
+  project-url: https://github.com/sjoerd2025/cloudflare-os-starter
+  project-lifecycle:
+    stage: active
+    bug-fixes-only: false
+  core-maintainers:
+    - github: sjoerd2025
+
+repository:
+  url: https://github.com/sjoerd2025/cloudflare-os-starter
+
+contribution-policy:
+  accepts-pull-requests: true
+  accepts-automated-pull-requests: true
+
+distribution-points:
+  - https://github.com/sjoerd2025/cloudflare-os-starter
+
+security-contacts:
+  - name: Security Maintainer
+    type: email
+    value: security@cloudflare.com
+
+vulnerability-reporting:
+  accepts-vulnerability-reports: true
+  url: https://github.com/sjoerd2025/cloudflare-os-starter/security/advisories/new

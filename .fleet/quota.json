@@ -1,0 +1,9 @@
+{
+  "date": "2026-10-14",
+  "dailyLimit": 50,
+  "maxDailyBudgetEur": 10.00,
+  "estimatedCostPerSessionEur": 0.20,
+  "accumulatedCostEur": 0.00,
+  "dispatchedCount": 0,
+  "sessions": []
+}

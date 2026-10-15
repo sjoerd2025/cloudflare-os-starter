@@ -1,77 +1,114 @@
 {
-  // Cloudflare account that owns every Worker and provisioned resource.
-  // Replace with your real account ID before deploying.
-  "accountId": "11111111111111111111111111111111",
-
-  // The deployment's public origin, used for PUBLIC_BASE_URL and to scope Context data.
-  // null derives it from workers.router.route.customDomain.
-  // Required when the router uses workersDev: the account's workers.dev subdomain is not
-  // knowable from this file. Write it as a bare origin, no path and no trailing slash --
-  // "https://<router-name>.<subdomain>.workers.dev".
+  // Cloudflare account owning every Worker and provisioned resource (32 hexadecimal characters).
+  "accountId": "d2c9b82a149fb05248c072050a018682",
+  // The deployment's public origin.
+  // Set to null to derive from workers.router.route.customDomain (https://os.agentup.dev).
   "publicBaseUrl": null,
-
-  // Worker names are permanent service identities. Keep them unique within the account.
+  // Service identities for the 6 Workers. Names must be lowercase, alphanumeric + hyphens.
   "workers": {
     "router": {
-      "name": "acme-os-router",
-      "route": { "customDomain": "os.example.com" }
+      "name": "agentup-os-router",
+      "route": {
+        // Production custom domain in an active Cloudflare zone.
+        "customDomain": "os.agentup.dev"
+      }
     },
-    "workshop": { "name": "acme-os-workshop" },
-    "context": { "name": "acme-os-context" },
-    "scheduler": { "name": "acme-os-scheduler" },
-    "customGatekeeper": { "name": "acme-os-custom-gatekeeper" },
-    "errorReporter": { "name": "acme-os-error-reporter" }
+    // The Cloudflare OS backend kernel running Durable Objects.
+    "workshop": {
+      "name": "agentup-os-workshop"
+    },
+    // Context Gatekeeper managing private & public knowledge collections.
+    "context": {
+      "name": "agentup-os-context"
+    },
+    // Scheduler Gatekeeper running persistent recurring tasks and alarms.
+    "scheduler": {
+      "name": "agentup-os-scheduler"
+    },
+    // Organization-specific custom gatekeeper integration.
+    "customGatekeeper": {
+      "name": "agentup-os-custom-gatekeeper"
+    },
+    // Private issue and exception reporting destination.
+    "errorReporter": {
+      "name": "agentup-os-error-reporter"
+    },
+    // Optional gatekeepers to install. Each becomes its own Worker (default name
+    // "agentup-os-gatekeeper-<id>"), bound to the router at /gatekeeper/<id> and to the
+    // Workshop backend via vendor RPC. Ids must match submodule packages under
+    // cloudflare-os/packages/gatekeeper-<id>.
+    "gatekeepers": {
+      "github": {},
+      "linear": {},
+      "chidori": {},
+      "tardigrade": {}
+    }
   },
-
-  // This starter deploys Cloudflare Access mode.
+  // Cloudflare Access Zero Trust authentication boundary.
   "access": {
-    "issuer": "https://acme.cloudflareaccess.com",
-    "audience": "example-access-audience",
-    "admins": ["admin@example.com"]
+    // Access team domain origin (HTTPS without trailing slash).
+    "issuer": "https://agentup.cloudflareaccess.com",
+    // Self-hosted Access application audience (AUD) tag.
+    "audience": "e55cd9738e96bce74a18415f6b6a405e684d269263a1182724d008f1304bc15a",
+    // Verified Access user emails permitted into /admin.
+    "admins": [
+      "bodbijlsjoerd@gmail.com"
+    ]
   },
-
-  // Model catalog served through Cloudflare AI Gateway.
+  // Deployment-managed model catalog served via Cloudflare AI Gateway.
   "aiGateway": {
     "enabled": true,
+    // "default" is the gateway automatically provisioned on first use.
     "name": "default",
+    // null reuses the deployment's own accountId (uses pre-authenticated WORKERS_AI binding).
     "accountId": null,
-    "providers": ["cloudflare"]
+    // Providers to advertise in the model picker.
+    // "cloudflare", "anthropic", and "openai" route over AI Gateway with account-level BYOK.
+    // Note: adding "google" requires CF_AI_GATEWAY_API_TOKEN secret.
+    "providers": [
+      "cloudflare",
+      "anthropic",
+      "openai"
+    ]
   },
-
+  // Context Gatekeeper configuration.
   "context": {
+    // null scopes Context data to the public origin (https://os.agentup.dev).
     "sharingDomain": null,
-    "kvNamespaceId": null
-    // Optional Git-compatible storage for Context collections.
-    // "artifacts": {
-    //   "enabled": true,
-    //   "namespace": "acme-context-collections"
-    // }
+    // null requests Wrangler automatic provisioning of the snapshots KV namespace.
+    "kvNamespaceId": null,
+    // Optional Git-compatible collection storage (Context Artifacts).
+    "artifacts": {
+      "enabled": false
+    }
   },
-
-  // Displayed to agents when the example custom integration is enabled in /admin.
+  // Display text served to agents by the custom gatekeeper.
   "customGatekeeper": {
-    "name": "Acme",
+    "name": "AgentUp",
     "message": "Use this deployment for organization-specific infrastructure and deployment information."
   },
-
-  // Explicit backend issue reports go to a private Worker that emits structured console errors.
+  // Explicit issue reporting configuration.
   "errorReporting": {
     "enabled": true,
     "environment": "production",
     "release": null
   },
-
-  // null values use Wrangler automatic provisioning.
+  // Dedicated storage resources. null requests Wrangler automatic provisioning.
   "resources": {
     "blueprintsKvNamespaceId": null,
     "avatarsKvNamespaceId": null,
     "blueprintContentBucket": null
   },
-
+  // Worker telemetry mapping onto wrangler's observability block.
   "observability": {
     "enabled": true,
     "headSamplingRate": 1,
-    "logs": { "invocationLogs": false },
-    "traces": { "enabled": false, "headSamplingRate": 0.1 }
+    "logs": {
+      "invocationLogs": false
+    },
+    "traces": {
+      "enabled": false,
+      "headSamplingRate": 0.1
+    }
   }
 }

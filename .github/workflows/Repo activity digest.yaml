@@ -1,0 +1,52 @@
+agentflow TB
+
+connector github["GitHub"]
+github@{ protocol: "mcp", url: "https://api.githubcopilot.com/mcp/" }
+
+flow activity_digest["Repo activity digest"]@{ model: "reasoning", instruction: "Your goal is to generate a comprehensive, actionable digest of repository activity over the last 24 hours covering pull requests, issues, commits, and releases. Highlight key changes, active contributors, and pending reviews. Keep summaries crisp and link every referenced artifact." }
+  target["Set the repo and window"]@{
+    instruction: |-
+      - The repo: sjoerd2025/cloudflare-os-starter.
+      - Get the current UTC date and timestamp. The window is the last 24 hours.
+      - Restate the repo name and time window for downstream steps.
+  }
+  fetch_activity["Fetch activity across PRs and issues"]@{
+    instruction: |-
+      - Fetch pull requests updated in the window: note newly opened, merged, closed, and awaiting review.
+      - Fetch issues opened, closed, or commented on in the window with their labels.
+      - Fetch recent commits pushed to the default branch in the window.
+      - Filter out routine bot notifications while keeping dependency bumps and release PRs.
+      - State counts for each category (PRs, issues, commits).
+  }
+  check_activity{"Any activity in window?"}@{
+    instruction: |-
+      - Route yes if there are new commits, PRs, or issue updates; otherwise route no.
+  }
+  synthesize["Synthesize activity by area"]@{
+    instruction: |-
+      - Group changes into logical areas: Features, Bug Fixes, Documentation, Infrastructure/CI, and Dependencies.
+      - Highlight breaking changes, schema migrations, and high-impact PRs merged.
+      - Identify pull requests that are blocked or still awaiting reviewer feedback.
+      - Recognize active contributors and reviewers from the window.
+  }
+  generate_digest["Draft the activity digest"]@{
+    instruction: |-
+      - Write a structured Markdown digest:
+        - Executive summary (2-3 sentences overviewing the day's velocity and primary focus).
+        - Merged Pull Requests (linked title, author, brief impact description).
+        - Open Issues & Work In Flight (new issues filed, blockers identified).
+        - Action Items (PRs needing review, unanswered questions).
+      - Ensure every PR, issue, and commit hash is properly hyperlinked.
+  }
+  empty_digest["Report quiet period"]@{
+    instruction: |-
+      - Generate a brief notice confirming the 24-hour window was checked and no new commits, PRs, or issue updates occurred.
+      - Note the current latest commit on the default branch for reference.
+  }
+
+  target --> fetch_activity --> check_activity
+  check_activity -- yes --> synthesize --> generate_digest
+  check_activity -- no --> empty_digest
+  fetch_activity -.- github
+  synthesize -.- github
+end

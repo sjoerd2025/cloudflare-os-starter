@@ -1,0 +1,48 @@
+name: "PR Review Against Standards"
+on:
+  workflow_dispatch:
+  pull_request:
+    types: [opened, synchronize]
+
+jobs:
+  pr-review:
+    name: "Review PR against standards"
+    runs-on: ubuntu-latest
+    steps:
+      - name: "Checkout code"
+        uses: actions/checkout@v4
+
+      - name: "Run Standards Review"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: "sjoerd2025/cloudflare-os-starter"
+        run: |
+          echo "=== PR Review Against Standards ==="
+          echo "Target repo: $REPO"
+          echo "Checking written standards:"
+          echo "  1. Behavior changes ship with tests"
+          echo "  2. No new TODOs without linked issue"
+          echo "  3. Public functions have doc comments"
+          echo "  4. No secrets or tokens in diff"
+          echo "  5. PR description explains why"
+          
+          # Check git diff if inside PR or local branch
+          if git rev-parse --verify HEAD~1 >/dev/null 2>&1; then
+            echo "Analyzing recent commit diff..."
+            DIFF=$(git diff HEAD~1 HEAD)
+            
+            # Check secrets
+            if echo "$DIFF" | grep -iE 'api[_-]?key|secret|token|password' | grep '^+'; then
+              echo "::warning::Potential secret or credential pattern found in diff"
+            else
+              echo "✓ No secret patterns detected in diff."
+            fi
+            
+            # Check TODOs
+            if echo "$DIFF" | grep -E '^\+.*TODO' | grep -vE 'TODO\([#0-9]+\)|TODO:.*#'; then
+              echo "::warning::New TODO without linked issue detected in diff"
+            else
+              echo "✓ No unlinked TODOs detected."
+            fi
+          fi
+          echo "Review complete."

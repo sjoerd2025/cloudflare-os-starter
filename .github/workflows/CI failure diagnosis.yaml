@@ -1,0 +1,45 @@
+agentflow TB
+
+connector github_actions["GitHub Actions"]
+github_actions@{ protocol: "mcp", url: "https://api.githubcopilot.com/mcp/x/actions/readonly" }
+
+flow ci_failures["CI failure diagnosis"]@{ instruction: "Your goal is to explain each failed CI run from the last day well enough that an engineer knows where to look first: the failing job, the exact error line, the most likely cause, and a suggested fix. Never re-run, cancel, or modify workflows." }
+  target["Set the repo and window"]@{
+    instruction: |-
+      - The repo: sjoerd2025/cloudflare-os-starter.
+      - Get the current UTC date. The window is the last 24 hours.
+  }
+  find_failures["Find failed runs"]@{
+    instruction: |-
+      - List the workflow runs that failed in the window, filtering with `status=failure` and
+        `created=>=YYYY-MM-DD` (the window's start): workflow name, branch, triggering commit
+        or PR, run link.
+      - Group runs that failed on the same commit.
+      - State how many you read. If the count is a round 30 or 100, flag it as a probable page cap.
+  }
+  logs["Pull the failing logs"]@{
+    instruction: |-
+      - For each failed run (at most five, newest first), fetch the failed job logs.
+        Say how many failed runs you left out.
+      - Extract the first real error line and thirty lines of context around it.
+  }
+  flow ci_diagnosis["Diagnose and report"]@{ model: "reasoning", instruction: "Your goal is to explain each failed CI run from the last day well enough that an engineer knows where to look first: the failing job, the exact error line, the most likely cause, and a suggested fix. Never re-run, cancel, or modify workflows." }
+    diagnose["Diagnose each failure"]@{
+      instruction: |-
+        - For each: classify as test failure, build error, flaky infra, or config; name the
+          most likely cause; suggest the first thing to try.
+        - Flag any failure that appears on more than one branch as probably systemic.
+    }
+    report["Write the report"]@{
+      instruction: |-
+        - Write the report: systemic failures first, then one block per run with error line,
+          cause, fix, and links. If nothing failed, say the build was green.
+        - Name the runs left out as worth checking next.
+        - Link each run by its workflow name rather than pasting a bare url.
+    }
+  end
+  target --> find_failures --> logs --> ci_diagnosis
+  diagnose --> report
+  find_failures -.- github_actions
+  logs -.- github_actions
+end

@@ -21,3 +21,11 @@
   <a href="https://www.typescriptlang.org/"><img alt="TypeScript 7" src="https://img.shields.io/badge/TypeScript-7-3178C6?logo=typescript&logoColor=white"></a>
   <a href="https://github.com/cloudflare/cloudflare-os"><img alt="Cloudflare OS upstream" src="https://img.shields.io/badge/upstream-Cloudflare_OS-24292F?logo=github"></a>
 </p>
+
+## Docs
+
+- [Customization](docs/customization.md) — Admin UI and deployment.jsonc controls
+- [Build and deploy tooling](docs/build-and-deploy.md) — why builds are Vite/Vite+ and deploys are Wrangler
+- [Migrate from the hosted deploy](docs/migrate-from-hosted.md) — ejecting from os.cloudflare.app
+- [Observability](docs/observability.md) — logs, invocation logs, and traces
+- [Deploy guide](DEPLOY_GUIDE.md) — full setup walkthrough

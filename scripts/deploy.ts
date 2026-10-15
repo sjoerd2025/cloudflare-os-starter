@@ -212,9 +212,20 @@ export function validateConfig(config: DeploymentConfig): DeploymentConfig {
   if (!accountIdPattern.test(config.accountId)) {
     throw new Error("Cloudflare account IDs must be 32 hexadecimal characters.");
   }
-  const workerNames = Object.entries(config.workers)
-    .filter(([key]) => key !== "errorReporter" || config.errorReporting.enabled)
-    .map(([, worker]) => worker.name);
+  const gatekeeperNames = Object.entries(config.workers.gatekeepers ?? {}).map(
+    ([id, g]) => g.name ?? `agentup-os-gatekeeper-${id}`,
+  );
+  const coreWorkerNames = [
+    config.workers.router.name,
+    config.workers.workshop.name,
+    config.workers.context.name,
+    config.workers.scheduler.name,
+    config.workers.customGatekeeper.name,
+    ...(config.errorReporting.enabled && config.workers.errorReporter
+      ? [config.workers.errorReporter.name]
+      : []),
+  ];
+  const workerNames = [...coreWorkerNames, ...gatekeeperNames];
   if (new Set(workerNames).size !== workerNames.length) {
     throw new Error(
       "Router, Workshop, Context, Scheduler, and custom Gatekeeper names must be unique.");
@@ -617,7 +628,8 @@ export function buildCommands(config: DeploymentConfig): BuildCommand[] {
 // `allowTrailingComma` because wrangler accepts them and upstream uses them: the Scheduler's base
 // config closes `build`, `migrations` and `observability` with one. Without the option every such
 // comma is a parse *error*, so the deploy refuses a file wrangler itself reads happily.
-const jsoncOptions = { allowTrailingComma: true };
+// `allowEmptyContent` allows empty JSONC files without raising a parse error.
+export const jsoncOptions = { allowTrailingComma: true, allowEmptyContent: true };
 
 async function readJsonc<T>(path: string): Promise<T> {
   const errors: ParseError[] = [];

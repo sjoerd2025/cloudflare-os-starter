@@ -1,0 +1,84 @@
+name: Git Dispatch
+
+on:
+  workflow_dispatch:
+    inputs:
+      prompt:
+        description: 'Task instructions for the Jules agent'
+        required: true
+        type: string
+      base_branch:
+        description: 'Base branch to branch off of'
+        required: false
+        default: 'main'
+        type: string
+  repository_dispatch:
+    types: [jules_dispatch, git_dispatch]
+  issue_comment:
+    types: [created]
+
+concurrency:
+  group: git-dispatch-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  dispatch:
+    # Trigger if manual dispatch, repository dispatch, or issue comment starting with /jules
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'repository_dispatch' ||
+      (github.event_name == 'issue_comment' && startsWith(github.event.comment.body, '/jules'))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Resolve Prompt and Branch
+        id: resolve
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "prompt=${{ inputs.prompt }}" >> "$GITHUB_OUTPUT"
+            echo "base_branch=${{ inputs.base_branch || 'main' }}" >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.event_name }}" = "repository_dispatch" ]; then
+            echo "prompt=${{ github.event.client_payload.prompt }}" >> "$GITHUB_OUTPUT"
+            echo "base_branch=${{ github.event.client_payload.base_branch || 'main' }}" >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.event_name }}" = "issue_comment" ]; then
+            COMMENT_BODY="${{ github.event.comment.body }}"
+            PROMPT=$(echo "$COMMENT_BODY" | sed 's|^/jules[[:space:]]*||')
+            echo "prompt=$PROMPT" >> "$GITHUB_OUTPUT"
+            echo "base_branch=main" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Execute Jules Git Dispatch Action
+        id: jules_dispatch
+        uses: ./.github/actions/git-dispatch
+        env:
+          JULES_API_KEY: ${{ secrets.JULES_API_KEY }}
+        with:
+          prompt: ${{ steps.resolve.outputs.prompt }}
+          base_branch: ${{ steps.resolve.outputs.base_branch }}
+          auto_pr: 'true'
+
+      - name: Comment on Issue if Comment-Triggered
+        if: github.event_name == 'issue_comment' && steps.jules_dispatch.outputs.pr-url != ''
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `🚀 Jules dispatched session **${{ steps.jules_dispatch.outputs.session-id }}**.\n\nPull Request opened: ${{ steps.jules_dispatch.outputs.pr-url }}`
+            });

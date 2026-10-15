@@ -2,7 +2,13 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { parse, type ParseError } from "jsonc-parser";
-import { aiGatewayPlan, buildCommands, generateConfigs, validateConfig } from "./deploy.ts";
+import {
+  aiGatewayPlan,
+  buildCommands,
+  generateConfigs,
+  jsoncOptions,
+  validateConfig,
+} from "./deploy.ts";
 import type {
   BaseConfigs,
   DeploymentConfig,
@@ -86,7 +92,7 @@ async function baseConfig(path: string): Promise<ProdWranglerConfig> {
   const result = parse(
     await readFile(new URL(path, import.meta.url), "utf8"),
     errors,
-    { allowTrailingComma: true },
+    jsoncOptions,
   ) as ProdWranglerConfig;
   assert.deepEqual(errors, [], `${path} did not parse cleanly`);
   return result;
@@ -615,4 +621,41 @@ test("skips the Error Reporter build when error reporting is disabled", () => {
   });
   const commands = buildCommands(config).map(({ args }) => args.join(" "));
   assert.equal(commands.some((command) => command.includes("error-reporter")), false);
+});
+
+test("JSONC parsing handles comments, trailing commas, and empty content properly", () => {
+  const jsoncContent = `
+    // Leading comment
+    {
+      /* Block comment */
+      "name": "acme-os",
+      "features": [
+        "auth",
+        "routing",
+      ],
+      "enabled": true,
+    }
+    // Trailing comment
+  `;
+  const errors: ParseError[] = [];
+  const parsed = parse(jsoncContent, errors, jsoncOptions);
+  assert.deepEqual(errors, []);
+  assert.deepEqual(parsed, {
+    name: "acme-os",
+    features: ["auth", "routing"],
+    enabled: true,
+  });
+
+  const emptyCases = [
+    "",
+    "   \n\t  \r\n",
+    "// single-line comment only\n",
+    "/* block comment only */",
+  ];
+  for (const input of emptyCases) {
+    const emptyErrors: ParseError[] = [];
+    const emptyParsed = parse(input, emptyErrors, jsoncOptions);
+    assert.deepEqual(emptyErrors, [], `Expected no errors for: ${JSON.stringify(input)}`);
+    assert.equal(emptyParsed, undefined);
+  }
 });

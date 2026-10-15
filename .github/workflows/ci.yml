@@ -1,0 +1,60 @@
+# .github/workflows/ci.yml
+name: CI
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  push:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: '11.17.0'
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Lint & Typecheck
+        id: lint
+        continue-on-error: true
+        run: pnpm run lint
+
+      - name: Run Tests
+        id: tests
+        continue-on-error: true
+        run: pnpm run test
+
+      - name: Deployment Config Check
+        id: check
+        continue-on-error: true
+        run: pnpm run check
+
+      - name: Fail Job if Errors
+        if: always()
+        run: |
+          if [ "${{ steps.lint.outcome }}" = "failure" ] || \
+             [ "${{ steps.tests.outcome }}" = "failure" ] || \
+             [ "${{ steps.check.outcome }}" = "failure" ]; then
+            echo "One or more quality checks failed."
+            exit 1
+          fi

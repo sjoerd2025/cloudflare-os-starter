@@ -1,0 +1,51 @@
+agentflow TB
+
+connector github["GitHub"]
+github@{ protocol: "mcp", url: "https://api.githubcopilot.com/mcp/" }
+
+flow pr_review["PR review against standards"]@{ model: "reasoning", instruction: "Your goal is to review open pull requests against the team's written standards and leave one useful, specific review comment per PR, never more than two PRs per run. Comment only: never approve, request changes, or merge. Cite file and line for every finding." }
+  standards["Set the repo and standards"]@{
+    instruction: |-
+      - The repo: sjoerd2025/cloudflare-os-starter.
+      - The standards. Edit this list to match your team:
+        - Every behavior change ships with a test.
+        - No new TODOs without a linked issue.
+        - Public functions have a one-line doc comment.
+        - No secrets, tokens, or credentials in the diff.
+        - PR description explains why, not just what.
+      - Restate repo and standards for the steps downstream.
+  }
+  candidates["Find PRs to review"]@{
+    instruction: |-
+      - List open, non-draft PRs updated in the last 7 days with no review and no comment
+        from you yet.
+      - Skip PRs authored by bots. Keep number, title, author, and link.
+      - State how many you read. If the count is a round 30 or 100, flag it as a probable page cap.
+  }
+  check{"Anything to review?"}@{
+    instruction: |-
+      - Route yes if at least one candidate PR exists, otherwise no.
+  }
+  review["Review the top two"]@{
+    instruction: |-
+      - Pick the two most recently updated candidates. Never review more than two per run;
+        raise this cap once you trust the flow.
+      - For each: fetch the diff, check every standard, and post exactly one comment on the
+        PR conversation (not inline line comments) that lists findings with file and line,
+        or says it meets the standards. Comment only.
+      - List every candidate you did not review.
+  }
+  recap["Write the recap"]@{
+    instruction: |-
+      - Summarize what was reviewed and the key findings, each PR's title linked to it.
+      - List unreviewed candidates as "worth reviewing next."
+      - If nothing needed review, say so and list what was checked.
+  }
+
+  standards --> candidates --> check
+  check -- yes --> review
+  check -- no --> recap
+  review --> recap
+  candidates -.- github
+  review -.- github
+end

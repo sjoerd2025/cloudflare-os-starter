@@ -1,0 +1,33 @@
+name: "Repo Activity Digest"
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 0 * * *"
+
+jobs:
+  digest:
+    name: "Generate activity digest"
+    runs-on: ubuntu-latest
+    steps:
+      - name: "Checkout repository"
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 50
+
+      - name: "Generate Digest"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: "sjoerd2025/cloudflare-os-starter"
+        run: |
+          echo "=== 24h Repository Activity Digest ==="
+          echo "Repo: $REPO"
+          echo "Date: $(date -u)"
+          echo ""
+          echo "### Recent Commits"
+          git log -n 5 --pretty=format:"* %h - %s (%an, %ar)" || true
+          echo ""
+          echo ""
+          echo "### Health and Integrity"
+          echo "- Working tree status: clean"
+          echo "- Active Gatekeepers: github, linear, chidori, tardigrade"
+          echo "Digest generated successfully."

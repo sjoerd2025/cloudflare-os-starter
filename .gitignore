@@ -2,4 +2,9 @@ node_modules/
 packages/*/dist/
 packages/*/.wrangler/
 packages/*/wrangler.prod.jsonc
+secrets.local.jsonc
 deployment.local.jsonc
+.DS_Store
+*.DS_Store
+deployment\ copy.jsonc
+wrangler.toml

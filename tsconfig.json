@@ -21,6 +21,6 @@
     "isolatedModules": true,
     "noEmit": true
   },
-  "include": [],
+  "include": ["scripts"],
   "exclude": ["node_modules", "dist", "cloudflare-os"]
 }
